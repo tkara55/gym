@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+</style>
+<title>Gym</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three-panel pixel "save screen" — day slots | portrait | exercise list */
+:root {
+  --bg: #000;
+  --panel: #0b0b0b;
+  --line: #f2f2f2;
+  --dim: #5a5a5a;
+  --dim-2: #3a3a3a;
+  --text: #c9c9c9;
+  --bright: #ffffff;
+  --red: #c4231c;
+  --red-dark: #5e0f0b;
+  --font-slot: "Pixelify Sans", "Courier New", monospace;
+  --font-text: "Pixelify Sans", "Courier New", monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-text);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  box-sizing: border-box;
+  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button, input { font: inherit; color: inherit; }
+
+.screen {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  border: 3px solid var(--line);
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: 210px auto minmax(0, 1fr);
+  gap: 20px;
+  padding: 10px;
+  /* fixed to the window: long lists scroll inside, the frame never grows */
+  height: min(100%, 440px);
+  min-height: 400px;
+  grid-template-rows: minmax(0, 1fr);
+}
+* { scrollbar-width: thin; scrollbar-color: var(--red) var(--panel); }
+
+/* ---------- days ---------- */
+.days {
+  border: 2px solid var(--line);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  justify-content: safe center;
+  min-height: 0;
+  overflow-y: auto;
+}
+.slot {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 6px;
+  align-items: stretch;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.link {
+  flex: 1 0 8px;
+}
+.icon {
+  height: 40px;
+  border: 2px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--red);
+}
+.icon svg { width: 18px; height: 18px; shape-rendering: crispEdges; }
+.name {
+  height: 40px;
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 12px;
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 17px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--red);
+  text-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.name .short { display: none; }
+.slot:hover .name, .slot:hover .icon { border-color: var(--red); }
+.slot:focus-visible { outline: 2px dashed var(--bright); outline-offset: 2px; }
+.slot[aria-pressed="true"] .icon {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--bright);
+}
+.slot[aria-pressed="true"] .name {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--bright);
+  text-shadow: none;
+}
+
+
+
+/* ---------- center box (empty, for a character later) ---------- */
+.stage {
+  align-self: stretch;
+  border: 2px solid var(--line);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  justify-self: center;
+}
+/* the box takes the card's proportions (fitCard); card files are pre-scaled 8x so they stay sharp when shrunk */
+.card {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- exercises ---------- */
+.moves {
+  justify-self: center;
+  width: min(100%, 380px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 18px;
+  padding: 24px 8px;
+  min-width: 0;
+  min-height: 0;
+  text-transform: uppercase;
+}
+.moves h2 {
+  margin: 0;
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: var(--dim);
+}
+.moves h2 b { color: var(--red); font-weight: 600; }
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 2px solid var(--line);
+  padding: 12px 10px 12px 12px;
+}
+.form, .add, .moves h2, .empty { flex-shrink: 0; }
+/* heading stays at the top and the add button at the bottom, whatever the day's list length */
+.form, .add { margin-top: auto; }
+.move {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+.move::before {
+  content: "▸";
+  font-size: 14px;
+  color: var(--dim);
+}
+.move .detail {
+  display: block;
+  font-size: 14px;
+  color: var(--dim);
+  letter-spacing: 0.08em;
+}
+.move span { min-width: 0; overflow-wrap: anywhere; }
+.edit, .remove {
+  background: none;
+  border: 0;
+  color: var(--dim-2);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+.edit, .remove { align-self: center; }
+.edit { color: var(--dim); }
+.edit svg { display: block; width: 15px; height: 15px; shape-rendering: crispEdges; }
+.edit:hover, .edit:focus-visible, .remove:hover, .remove:focus-visible { color: var(--red); outline: none; }
+.move.editing { color: var(--red); }
+.kg {
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--red);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.kg small { font-size: 13px; margin-left: 2px; letter-spacing: 0.06em; }
+.kg.none { font-size: 15px; color: var(--dim-2); }
+.kg:hover, .kg:focus-visible { color: var(--bright); outline: none; }
+.form-title { grid-column: 1 / -1; margin: 0; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--red); }
+.empty {
+  margin: 0;
+  flex: 1 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--dim);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.add {
+  align-self: flex-start;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  padding: 8px 15px;
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bright);
+}
+.add:hover { background: var(--red); border-color: var(--red); }
+/* rest days: the button stays in place but is locked */
+.add:disabled,
+.add:disabled:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border-color: var(--dim);
+  color: var(--dim);
+  cursor: not-allowed;
+}
+.add svg { width: 13px; height: 13px; shape-rendering: crispEdges; }
+.add:focus-visible { outline: 2px dashed var(--bright); outline-offset: 2px; }
+
+.form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  border: 2px solid var(--dim);
+  padding: 14px;
+  text-transform: none;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  min-width: 0;
+}
+.form label.wide { grid-column: 1 / -1; }
+.form input {
+  background: var(--panel);
+  border: 2px solid var(--dim-2);
+  padding: 8px;
+  font-size: 17px;
+  color: var(--bright);
+  width: 100%;
+  min-width: 0;
+}
+.form input:focus { border-color: var(--red); outline: none; }
+.form .actions { grid-column: 1 / -1; display: flex; gap: 10px; }
+.form .actions button {
+  border: 2px solid var(--line);
+  background: var(--bg);
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.form .actions .ok { background: var(--red); border-color: var(--red); color: var(--bright); }
+.form .actions button:focus-visible { outline: 2px dashed var(--bright); outline-offset: 2px; }
+
+@media (max-width: 860px) {
+  .screen { grid-template-columns: 190px auto minmax(0, 1fr); gap: 14px; }
+  .name { font-size: 16px; padding: 0 10px; }
+}
+@media (max-width: 560px) {
+  .screen { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 12px; height: auto; min-height: 0; }
+  body { display: block; }
+  .days, .list { overflow: visible; }
+  /* phone: the week becomes one row of short day buttons, the card a small banner,
+     so the day's exercises are visible without scrolling */
+  .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 6px; }
+  .link, .icon { display: none; }
+  .slot { grid-template-columns: minmax(0, 1fr); }
+  .name { height: 38px; padding: 0; font-size: 14px; letter-spacing: 0.02em; }
+  .name .full { display: none; }
+  .name .short { display: inline; }
+  .stage { height: 150px; }
+  .moves { padding: 0 2px 12px; gap: 12px; }
+  .moves h2 { font-size: 20px; }
+  .move { font-size: 16px; }
+  .form { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+</head>
+<body>
+<main class="screen">
+  <nav class="days" id="days" aria-label="Haftanın günleri"></nav>
+  <div class="stage" id="stage">
+    <img class="card" id="card" alt="" width="536" height="904">
+  </div>
+
+
+  <section class="moves" aria-live="polite">
+    <h2 id="heading"></h2>
+    <ul class="list" id="list"></ul>
+    <p class="empty" id="empty" hidden>Dinlenme günü</p>
+    <form class="form" id="form" hidden>
+      <p class="form-title" id="form-title">Yeni hareket</p>
+      <label class="wide">Hareket
+        <input id="f-name" required maxlength="40" placeholder="Bench press" autocomplete="off">
+      </label>
+      <label>Set
+        <input id="f-sets" type="number" min="1" max="20" placeholder="4" inputmode="numeric">
+      </label>
+      <label>Tekrar
+        <input id="f-reps" maxlength="10" placeholder="6-8" autocomplete="off">
+      </label>
+      <label>Kilo
+        <input id="f-kg" type="number" min="0" max="500" step="0.5" placeholder="60" inputmode="decimal">
+      </label>
+      <div class="actions">
+        <button type="submit" class="ok">Kaydet</button>
+        <button type="button" id="cancel">Vazgeç</button>
+      </div>
+    </form>
+    <button class="add" id="add" type="button">+ Hareket ekle</button>
+  </section>
+</main>
+
+<script>
+const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const DAYS_SHORT = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+const KEY = "gym-week-v2";
+
+const m = (name, sets, reps, note) => ({ name, sets, reps, kg: null, note: note || "" });
+const PROGRAM = [
+  [
+    m("Plate Loaded Chest Press", 2, "5-6"),
+    m("Smith Machine Low Incline Press", 2, "5-6"),
+    m("Chest Fly Machine", 1, "6-8"),
+    m("Shoulder Press Machine", 2, "6-8"),
+    m("Lateral Raise", 3, "8-10"),
+    m("Triceps Pushdown", 2, "6-8"),
+    m("Overhead Rope Extension", 2, "8-10"),
+  ],
+  [
+    m("Lat Pulldown", 2, "6-8"),
+    m("Plate Loaded Wide Grip Row", 3, "6-8"),
+    m("Cable Row", 1, "8-10"),
+    m("Incline Dumbbell Curl", 2, "6-8"),
+    m("Cable Curl", 2, "6-8"),
+    m("Hammer Curl + Reverse Barbell Curl", 2, "8-10", "süperset"),
+  ],
+  [
+    m("Leg Press", 2, "6-8"),
+    m("Smith Machine Squat", 2, "6-8"),
+    m("Leg Extension", 2, "8-10"),
+    m("Seated Leg Curl", 3, "8-10"),
+  ],
+  [],
+  [
+    m("Shoulder Press Machine", 2, "6-8"),
+    m("Lateral Raise", 3, "8-10"),
+    m("Smith Machine Low Incline Press", 2, "5-6"),
+    m("Chest Fly Machine", 2, "6-8"),
+    m("Cable Rear Delt Fly", 2, "8-10"),
+    m("Triceps Pushdown", 2, "6-8"),
+    m("Overhead Rope Extension", 2, "8-10"),
+  ],
+  [
+    m("Plate Loaded Wide Grip Row", 3, "6-8"),
+    m("Lat Pulldown", 3, "6-8"),
+    m("Romanian Deadlift", 2, "5-6"),
+    m("Cable Curl", 2, "6-8"),
+    m("Hammer Curl + Reverse Barbell Curl", 2, "8-10", "süperset"),
+    m("Leg Extension", 2, "6-8"),
+    m("Seated Leg Curl", 1, "8-10"),
+  ],
+  [],
+];
+const up = s => s.toLocaleUpperCase("tr-TR");
+
+const ICON_LOCK = '<svg viewBox="0 0 11 11" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M3 1h5v1h1v3H8V2H3v3H2V2h1z"/><path d="M1 5h9v6H1zM5 7v2h1V7z"/></svg>';
+const ICON_EDIT = '<svg viewBox="0 0 11 11" fill="currentColor" aria-hidden="true"><path d="M8 0h1v1h1v1h1v1h-1v1H9v1H8v1H7v1H6v1H5v1H4v1H3v1H0V8h1V7h1V6h1V5h1V4h1V3h1V2h1V1h1z"/></svg>';
+const ICON_DUMBBELL = '<svg viewBox="0 0 11 11" fill="currentColor"><path d="M0 4h1V3h2v2h5V3h2v1h1v3h-1v1H8V6H3v2H1V7H0z"/></svg>';
+
+let week = JSON.parse(JSON.stringify(PROGRAM));
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (Array.isArray(saved) && saved.length === 7) week = saved;
+} catch (e) {}
+
+let current = (new Date().getDay() + 6) % 7;
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(week)); } catch (e) {}
+}
+
+function renderDays() {
+  const nav = document.getElementById("days");
+  nav.innerHTML = "";
+  DAYS.forEach((d, i) => {
+    if (i > 0) {
+      const l = document.createElement("div");
+      l.className = "link";
+      nav.appendChild(l);
+    }
+    const b = document.createElement("button");
+    b.className = "slot";
+    b.type = "button";
+    b.id = "day-" + i;
+    b.setAttribute("aria-pressed", i === current);
+    b.innerHTML =
+      `<span class="icon">${ICON_DUMBBELL}</span>` +
+      `<span class="name"><span class="full">${up(d)}</span><span class="short">${up(DAYS_SHORT[i])}</span></span>`;
+    b.onclick = () => { current = i; closeForm(); render(); };
+    nav.appendChild(b);
+  });
+}
+
+// Center card per day; rest days show the locked card
+const CARD_W = 67, CARD_H = 113;
+const CARDS = ["card-mon", "card-tue", "card-wed", "card-locked", "card-fri", "card-sat", "card-locked"];
+const stage = document.getElementById("stage");
+const card = document.getElementById("card");
+function fitCard() {
+  stage.style.width = "";
+  if (getComputedStyle(stage).display === "none") return;
+  const h = stage.clientHeight;
+  stage.style.width = Math.round(h * CARD_W / CARD_H) + 4 + "px";
+}
+function renderStage() {
+  card.src = "cards/" + CARDS[current] + ".png";
+  card.alt = CARDS[current] === "card-locked" ? "Kilitli kart, dinlenme günü" : DAYS[current] + " kartı";
+  fitCard();
+}
+if ("ResizeObserver" in window) new ResizeObserver(fitCard).observe(stage);
+
+function renderMoves() {
+  const moves = week[current];
+  document.getElementById("heading").innerHTML = `<b>${up(DAYS[current])}</b> · ${moves.length} hareket`;
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  moves.forEach((m, idx) => {
+    const li = document.createElement("li");
+    li.className = "move" + (idx === editing ? " editing" : "");
+    const parts = [];
+    if (m.sets && m.reps) parts.push(`${m.sets} × ${m.reps}`);
+    else if (m.sets) parts.push(`${m.sets} set`);
+    else if (m.reps) parts.push(`${m.reps} tekrar`);
+    if (m.note) parts.push(m.note);
+    const span = document.createElement("span");
+    // exercise names are mostly English: uppercase without the Turkish dotted İ
+    span.lang = "en";
+    span.textContent = m.name.toUpperCase();
+    const d = document.createElement("small");
+    d.className = "detail";
+    d.textContent = parts.join(" · ");
+    span.appendChild(d);
+    // weight stands on its own on the right; tapping it opens the edit form at the kilo field
+    const kg = document.createElement("button");
+    kg.type = "button";
+    kg.className = "kg" + (m.kg ? "" : " none");
+    kg.innerHTML = m.kg ? `${m.kg}<small>KG</small>` : "— KG";
+    kg.setAttribute("aria-label", m.name + " kilosunu düzenle");
+    kg.onclick = () => openForm(idx);
+    const ed = document.createElement("button");
+    ed.className = "edit";
+    ed.type = "button";
+    ed.innerHTML = ICON_EDIT;
+    ed.setAttribute("aria-label", m.name + " hareketini düzenle");
+    ed.onclick = () => openForm(idx);
+    const rm = document.createElement("button");
+    rm.className = "remove";
+    rm.type = "button";
+    rm.textContent = "×";
+    rm.setAttribute("aria-label", m.name + " hareketini kaldır");
+    rm.onclick = () => { closeForm(); week[current].splice(idx, 1); save(); render(); };
+    li.append(span, kg, ed, rm);
+    list.appendChild(li);
+  });
+  document.getElementById("empty").hidden = moves.length > 0;
+  list.hidden = moves.length === 0;
+  const rest = CARDS[current] === "card-locked";
+  addBtn.disabled = rest;
+  addBtn.innerHTML = rest ? ICON_LOCK + "Hareket ekle" : "+ Hareket ekle";
+  addBtn.title = rest ? "Dinlenme günü" : "";
+}
+
+function render() { renderDays(); renderStage(); renderMoves(); }
+
+
+const form = document.getElementById("form");
+const addBtn = document.getElementById("add");
+const field = id => document.getElementById(id);
+let editing = -1;
+function openForm(idx) {
+  form.reset();
+  editing = typeof idx === "number" ? idx : -1;
+  if (editing >= 0) {
+    const m = week[current][editing];
+    field("f-name").value = m.name;
+    field("f-sets").value = m.sets || "";
+    field("f-reps").value = m.reps || "";
+    field("f-kg").value = m.kg || "";
+  }
+  field("form-title").textContent = editing >= 0 ? "Hareketi düzenle" : "Yeni hareket";
+  form.hidden = false;
+  addBtn.hidden = true;
+  renderMoves();
+  const focus = field(editing >= 0 ? "f-kg" : "f-name");
+  focus.focus();
+  if (editing >= 0) focus.select();
+  form.scrollIntoView({ block: "nearest" });
+}
+function closeForm() {
+  form.reset();
+  form.hidden = true;
+  addBtn.hidden = false;
+  if (editing >= 0) { editing = -1; renderMoves(); }
+}
+addBtn.onclick = () => openForm();
+document.getElementById("cancel").onclick = closeForm;
+form.addEventListener("keydown", e => { if (e.key === "Escape") closeForm(); });
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const name = document.getElementById("f-name").value.trim();
+  if (!name) return;
+  const num = id => {
+    const v = parseFloat(field(id).value);
+    return isFinite(v) && v > 0 ? v : null;
+  };
+  const entry = { name, sets: num("f-sets"), reps: field("f-reps").value.trim() || null, kg: num("f-kg") };
+  if (editing >= 0) Object.assign(week[current][editing], entry);
+  else week[current].push({ ...entry, note: "" });
+  editing = -1;
+  save();
+  closeForm();
+  render();
+  addBtn.focus();
+});
+
+render();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
